@@ -1,6 +1,13 @@
+#[warn(non_uppercase_statics)];
+#[warn(non_camel_case_types)];
+#[warn(unnecessary_qualification)];
+
 extern mod extra;
 
+mod action;
+mod automata;
 mod dfa;
+mod lexer;
 mod nfa;
 mod regex;
 
@@ -33,24 +40,16 @@ fn print_ast(a: &regex::AST, prefix: &str) {
 }
 
 fn main() {
-    let regex = "a";
-    let regex2 = "abb";
-    let regex3 = "a*bb*";
+    use std::rt::io;
+    let mut regexps = ~[];
 
-    unsafe {
-        let ast = regex::parse(regex.to_c_str().unwrap());
-        let ast2 = regex::parse(regex2.to_c_str().unwrap());
-        let ast3 = regex::parse(regex3.to_c_str().unwrap());
-   //     print_ast(ast, "");
+    regexps.push((~"a", stringify!(println!("Saw an A")).into_owned()));
+    regexps.push((~"abb", stringify!(println!("Saw abb")).into_owned()));
+    regexps.push((~"a*bb*", stringify!(println!("Saw a*b+")).into_owned()));
 
-   // println!("First positions: {:?}", ast.first_pos());
-   // println!("Final positions: {:?}", ast.final_pos());
-        let asts = [ast, ast2, ast3];
+    let lex = ~::lexer::Lexer::new(regexps);
+    let out = &mut io::stdio::stdout() as &mut io::Writer;
+ //   ::automata::to_dot(lex.auto, out);
 
-    let nfa = nfa::NFA::build_nfa(asts);
-  //  nfa.to_dot();
-
-    let dfa = ~dfa::DFA::new_from_nfa(nfa);
-    dfa.to_dot();
-    }
+    lex.write(None, out);
 }  

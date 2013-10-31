@@ -1,17 +1,70 @@
-use regex;
+use automata::Automata;
+use automata::AutomataState;
 use std::hashmap::HashMap;
+use std::hashmap::HashMapIterator;
 use std::hashmap::HashSet;
+use std::hashmap::HashSetIterator;
+use regex;
 
+// a non-deterministic finite automata
 struct NFA {
-    states: ~HashMap<uint, ~State>,
-    finals: ~HashSet<uint>,
-    initial: uint
+    priv states: ~HashMap<uint, ~State>,
+    priv finals: ~HashSet<uint>,
+    priv initial: uint
 }
 
 struct State {
-    trans: ~HashMap<u8, ~HashSet<uint>>,
-    etrans: ~HashSet<uint>,
-    final: bool
+    priv trans: ~HashMap<u8, ~HashSet<uint>>,
+    priv etrans: ~HashSet<uint>,
+    priv action: Option<uint>
+}
+
+impl AutomataState for State {
+    fn transitions(&self) -> ~[(u8, uint)] {
+        let mut transitions = ~[];
+
+        for (ch, dsts) in self.trans.iter() {
+            for st in dsts.iter() {
+                transitions.push((*ch, *st));
+            }
+        }
+
+        transitions
+    }
+
+    fn etransitions<'a>(&'a self) -> HashSetIterator<'a, uint> {
+        self.etrans.iter()
+    }
+
+    fn is_final(&self) -> bool {
+        self.action != None
+    }
+
+    fn action(&self) -> Option<uint> {
+        self.action
+    }
+}
+
+impl Automata<State> for NFA {
+    fn label(&self, st: uint) -> Option<~str> {
+        Some(format!("{:u}", st))
+    }
+
+    fn states_iter<'a>(&'a self) -> HashMapIterator<'a, uint, ~State> {
+        self.states.iter()
+    }
+
+    fn finals_iter<'a>(&'a self) -> HashSetIterator<'a, uint> {
+        self.finals.iter()
+    }
+    
+    fn find_state<'a>(&'a self, st: uint) -> Option<&'a ~State> {
+        self.states.find(&st)
+    }
+    
+    fn initial(&self) -> uint {
+        self.initial
+    }
 }
 
 fn gen_state_num(current_id: &mut uint) -> uint {
@@ -24,7 +77,7 @@ fn new_state(current_id: &mut uint) -> (uint, ~State) {
     (id, ~State { 
         trans: ~HashMap::new(),
         etrans: ~HashSet::new(),
-        final: false
+        action: None
     })
 }
 
@@ -56,7 +109,6 @@ impl NFA {
                 let (first_id, nfirst) = new_state(current_id);
                 let (final_id, nfinal) = new_state(current_id);
                 let mut nfirst = nfirst;
-                let mut nfinal = nfinal;
 
                 // transfer ownership of states from the build sub-NFA
                 // to the new NFA, but keeping state numbers 
@@ -78,7 +130,7 @@ impl NFA {
                 for i in finals_l.iter() {
                     match ret.states.find_mut(i) {
                         Some(state) => {
-                            state.final = false;
+                            state.action = None;
                             state.etrans.insert(final_id);
                         }
 
@@ -90,7 +142,7 @@ impl NFA {
                 for i in finals_r.iter() {
                     match ret.states.find_mut(i) {
                         Some(state) => {
-                            state.final = false;
+                            state.action = None;
                             state.etrans.insert(final_id);
                         }
 
@@ -122,7 +174,7 @@ impl NFA {
                 let final = final_state(ret);
 
                 // remove the old first state
-                let ~State { trans: ftrans, etrans: fetrans, final: _ } = 
+                let ~State { trans: ftrans, etrans: fetrans, action: _ } = 
                     match states.pop(&init) {
                         Some(st) => st,
                         None => fail!("")
@@ -156,7 +208,7 @@ impl NFA {
                 ret
             }
 
-            regex::Char((ch, pos)) => {
+            regex::Char((ch, _)) => {
                 let mut ret = ~NFA {
                     states: ~HashMap::new(),
                     finals: ~HashSet::new(),
@@ -186,7 +238,6 @@ impl NFA {
                 let (first_id, nfirst) = new_state(current_id);
                 let (final_id, nfinal) = new_state(current_id);
                 let mut nfirst = nfirst;
-                let mut nfinal = nfinal;
 
                 let final = final_state(ret);
                 match ret.states.find_mut(&final) {
@@ -210,7 +261,7 @@ impl NFA {
         }
     }
 
-    pub fn build_nfa(regexs: &[~regex::AST]) -> ~NFA {
+    pub fn build_nfa(regexs: ~[(~regex::AST, uint)]) -> ~NFA {
         let mut id = 0;
         let mut ret = ~NFA {
             states: ~HashMap::new(),
@@ -221,15 +272,15 @@ impl NFA {
         let mut first = ~State {
             trans: ~HashMap::new(),
             etrans: ~HashSet::new(),
-            final: false
+            action: None
         };
 
-        for r in regexs.iter() {
+        for (reg, act) in regexs.move_iter() {
             let ~NFA {
                 states: nstates,
                 finals: nfinals,
                 initial: ninit
-            } = NFA::new(&**r, &mut id);
+            } = NFA::new(reg, &mut id);
 
             for (i, p) in nstates.move_iter() {
                 ret.states.insert(i, p);
@@ -237,6 +288,9 @@ impl NFA {
 
             for p in nfinals.move_iter() {
                 ret.finals.insert(p);
+
+                let st = ret.states.find_mut(&p).unwrap();
+                st.action = Some(act);
             }
 
             first.etrans.insert(ninit);
