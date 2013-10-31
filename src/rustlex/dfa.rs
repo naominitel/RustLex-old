@@ -448,7 +448,7 @@ impl DFA {
         let mut old_indexes = ~HashMap::new();
         let mut current_index = 1u;
 
-        for (i, st) in self.states.iter() {
+        for (i, _) in self.states.iter() {
             new_indexes.insert(*i, current_index); 
             old_indexes.insert(current_index, *i);
             current_index += 1;
@@ -471,7 +471,6 @@ impl DFA {
 
         let final_tb = ::std::vec::from_fn(current_index, |i: uint| {
             if i == 0 { 0 }
-
             else {
                 let old_idx = old_indexes.find(&i).unwrap();
                 let st = self.states.find(old_idx).unwrap();
