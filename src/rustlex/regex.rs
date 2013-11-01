@@ -38,6 +38,7 @@ impl AST {
 
 /* definitions for C part */
 
+/* #[repr(C)] <- FIXME: uncomment when upgrading to master */
 enum RustlexCType {
     RustlexOr = 0,
     RustlexCat = 1, 
@@ -53,6 +54,7 @@ struct RustlexCAST {
     const_pos: libc::c_uint
 }
 
+#[link_args = "lib/regex_parser.dylib"]
 extern {
     fn rustlex_parse_regex(input: *libc::c_char) -> *RustlexCAST;
 }
