@@ -1,10 +1,12 @@
 use action::Action;
 use std::hashmap::HashMap;
+use std::hashmap::HashSet;
 use std::rt::io::Writer;
 
 struct Lexer {
-    auto: ~::dfa::DFA,
-    priv actions: ~HashMap<uint, ~Action>
+    priv auto: ~::dfa::DFA,
+    priv actions: ~HashMap<uint, ~Action>,
+    priv conditions: ~HashSet<~str>
 }
 
 impl Lexer {
@@ -52,26 +54,32 @@ impl Lexer {
         writeln!(out, "\n];");
     }
 
-    pub fn new(regex: ~[(~str, ~str)]) -> Lexer {
+    pub fn new(regex: ~[(~str, ~str, Option<~str>)]) -> Lexer {
         let id = &mut 0u;
         let mut asts = ~[];
         let mut acts = ~HashMap::new();
+        let mut conds = ~HashSet::new();
 
         // parse regexs and actions 
-        for (reg, act) in regex.move_iter() {
+        for (reg, act, cond) in regex.move_iter() {
             let ast = unsafe { ::regex::parse(reg.to_c_str().unwrap()) };
-            let action = Action::new(reg, act);
+            let cond = match cond {
+                Some(c) => c,
+                None => "Initial".into_owned()
+            };
 
             *id += 1;
+            let action = Action::new(reg, act, cond.clone(), *id);
             acts.insert(*id, action);
             asts.push((ast, *id));
+            conds.insert(cond);
         }
 
         let nfa = ::nfa::NFA::build_nfa(asts);
-        let mut dfa = ::dfa::DFA::new_from_nfa(nfa);
+        let mut dfa = ::dfa::DFA::new_from_nfa(nfa, acts);
         let dfa = dfa.minimize();
 
-        Lexer { auto: dfa, actions: acts }
+        Lexer { auto: dfa, actions: acts, conditions: conds }
     }
 
     pub fn write(&self, templ: Option<~str>, out: &mut Writer) {
@@ -139,14 +147,22 @@ impl Lexer {
 
             else if line == "#RUSTLEX_STATE_ACTIONS" {
                 for (i, action) in self.actions.iter() { 
-                    writeln!(out, "            {:u} => \\{\
-                            \n                 {:s}\n            \\}",
-                            *i, action.action);
+                    action.write(*i, out);
                 }
             }
 
             else if line == "#RUSTLEX_INIT_STATE" {
                 writeln!(out, "static INIT_STATE: uint = {:u};", init_st);
+            }
+
+            else if line == "#RUSTLEX_CONDITIONS" {
+                writeln!(out, "enum RustlexCondition \\{");
+
+                for s in self.conditions.iter() {
+                    writeln!(out, "    {:s},", *s);
+                }
+
+                writeln!(out, "\\}");
             }
 
             else {

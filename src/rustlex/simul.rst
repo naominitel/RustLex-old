@@ -1,6 +1,7 @@
 #RUSTLEX_TRANSITION_TABLE
 #RUSTLEX_ACCEPTING_TABLE
 #RUSTLEX_INIT_STATE
+#RUSTLEX_CONDITIONS
 
 static INPUT_BUFSIZE: uint = 256;
 
@@ -12,6 +13,7 @@ struct InputBuffer {
 struct Lexer {
     stream: ~::std::rt::io::Reader,
     inp: ~InputBuffer,
+    condition: RustlexCondition
 }
 
 impl Lexer {
@@ -42,7 +44,7 @@ impl Lexer {
         self.inp.current_pos = pos;
     }
 
-    fn next<'a>(&'a mut self) -> Option<(uint, &'a [u8])> {
+    fn next<'a>(&'a mut self) -> Option<(uint, &'a str)> {
         let oldpos = self.inp.current_pos;
         let mut advance = self.inp.current_pos;
         let mut last_matching_action = 0;
@@ -87,7 +89,7 @@ impl Lexer {
 
     fn new(stream: ~::std::rt::io::Reader) -> ~Lexer {
         let buf = ~InputBuffer { buf: ~[], current_pos: 0 };
-        ~Lexer { stream: stream, inp: buf }
+        ~Lexer { stream: stream, inp: buf, condition: Initial }
     }
 }
 
@@ -97,7 +99,7 @@ fn main() {
     let mut lexer = Lexer::new(inp);
 
     for (_, s) in lexer {
-        println!("matched string: {:s}", ::std::str::from_utf8(s));
+        println!("matched string: {:s}", s);
     }
 }
 

@@ -1,3 +1,4 @@
+use action::Action;
 use automata::Automata;
 use automata::AutomataState;
 use std::hashmap::HashMap;
@@ -82,7 +83,7 @@ impl Automata<State> for DFA {
 
 impl DFA {
     // "determinization" of a NFA
-    pub fn new_from_nfa(nfa: &::nfa::NFA) -> ~DFA {
+    pub fn new_from_nfa(nfa: &::nfa::NFA, atb: &mut HashMap<uint, ~Action>) -> ~DFA {
         let current_id = &mut 0;
 
         // we associate a unique number to each state we create to index them
@@ -172,9 +173,11 @@ impl DFA {
                                     match (st.action(), action) {
                                         (Some(act), None) => action = Some(act),
                                         (Some(act), Some(ref a)) => {
-                                            if act < *a {
-                                                action = Some(act);
-                                            }
+                                            let act = {
+                                                let r = atb.get(&act);
+                                                r.clone()
+                                            };
+                                            atb.find_mut(a).unwrap().merge(&*act);
                                         }
 
                                         // non final state
