@@ -136,7 +136,53 @@ impl DFA {
 
                 match ret.states.find(&next_id) {
                     Some(st) => {
-                        let tr = nfa.trans(st.nfa_states, i);
+                        let mut tr = ~HashSet::new();
+
+                        // this state is final if it corresponds to
+                        // at least one nfa final state. its action will
+                        // be the action of the first final state built
+                        let mut action = None;
+
+
+                        // list all the states in which we can be after
+                        // transiting from this state by the current char
+                        for st in st.nfa_states.iter() {
+                            let st = nfa.find_state(*st).unwrap();
+
+                            let mut trans = match st.trans(i) {
+                                Some(t) => t,
+                                None => continue
+                            };
+
+                            for t in trans {
+                                // if we don't already have this state,
+                                // add it, as well as all states we can
+                                // transition from it by epsilon
+                                if !tr.contains(t) {
+                                    tr.insert(*t);
+
+                                    let eclos = nfa.eclosure_(*t);
+                                    for st in eclos.iter() {
+                                        tr.insert(*st);
+                                        let st = nfa.find_state(*st).unwrap();
+
+                                        match (st.action(), action) {
+                                            (Some(act), None) => action = Some(act),
+                                            (Some(act), Some(ref a)) => {
+                                                let act = {
+                                                    let r = atb.get(&act);
+                                                    r.clone()
+                                                };
+                                                atb.find_mut(a).unwrap().merge(&*act);
+                                            }
+
+                                            // non final state
+                                            (None, _) => ()
+                                        }
+                                    }
+                                }
+                            }
+                        }
 
                         if tr.is_empty() {
                             // this state has no i-transitions
@@ -144,13 +190,11 @@ impl DFA {
                             continue;
                         }
 
-                        let eclos = nfa.eclosure(tr);
-
                         // find if we already have a DFA state that
                         // corresponds to this state set of the NFA
                         let mut id = None;
                         for (s, st) in ret.states.iter() {
-                            if st.nfa_states == eclos {
+                            if st.nfa_states == tr {
                                 id = Some(s);
                                 break;
                             }
@@ -160,31 +204,8 @@ impl DFA {
                             Some(i) => *i,
                             None => {
                                 // we don't have this sate, create it
-                                let (nid, nst) = new_state(eclos, current_id);
+                                let (nid, nst) = new_state(tr, current_id);
                                 let mut nst = nst;
-
-                                // this state is final if it corresponds to 
-                                // at least one nfa final state. its action will 
-                                // be the action of the first final state built
-                                let mut action = None;
-
-                                for i in nst.nfa_states.iter() {
-                                    let st = nfa.find_state(*i).unwrap();
-                                    match (st.action(), action) {
-                                        (Some(act), None) => action = Some(act),
-                                        (Some(act), Some(ref a)) => {
-                                            let act = {
-                                                let r = atb.get(&act);
-                                                r.clone()
-                                            };
-                                            atb.find_mut(a).unwrap().merge(&*act);
-                                        }
-
-                                        // non final state
-                                        (None, _) => ()
-                                    }
-                                }
-
                                 nst.action = action;
 
                                 // ret is already borrowed, keep this state

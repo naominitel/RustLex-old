@@ -45,6 +45,12 @@ impl AutomataState for State {
     }
 }
 
+impl State {
+    pub fn trans<'a>(&'a self, c: u8) -> Option<HashSetIterator<'a, uint>> {
+        do self.trans.find(&c).map |s| { s.iter() }
+    }
+}
+
 impl Automata<State> for NFA {
     fn label(&self, st: uint) -> Option<~str> {
         Some(format!("{:u}", st))
@@ -358,26 +364,10 @@ impl NFA {
         ret
     }
 
-    pub fn trans(&self, st: &HashSet<uint>, c: u8) -> ~HashSet<uint> {
-        let mut ret = ~HashSet::new();
-
-        for s in st.iter() {
-            match self.states.find(s) {
-                Some(state) => {
-                    match state.trans.find(&c) {
-                        Some(set) => {
-                            for i in set.iter() {
-                                ret.insert(*i);
-                            }
-                        }
-                        None => ()
-                    }
-                }
-                None => ()
-            }
-        }
-
-        ret
+    pub fn eclosure_(&self, st: uint) -> ~HashSet<uint> {
+        let mut hs = ~HashSet::new();
+        hs.insert(st);
+        self.eclosure(hs)
     }
 
     pub fn is_final(&self, st: &HashSet<uint>) -> bool {
