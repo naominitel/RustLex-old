@@ -66,6 +66,27 @@
         return ret;
     }
 
+    static inline rustlex_ast_t* makeseq(unsigned char c1, unsigned char c2)
+    {
+        rustlex_ast_t *ret;
+        unsigned char c;
+
+        if(c1 >= c2)
+           yyerror("Bad caracters for seq");
+
+        ret = makeconst(c1);
+
+        for(c = c1 + 1; c < c2; ++c)
+        {
+            rustlex_ast_t *op = makeconst(c);
+            ret = makeor(ret, op);
+        }
+
+        ret = makeor(ret, makeconst(c2));
+
+        return ret;
+    }
+
     static inline rustlex_ast_t* copyast(rustlex_ast_t *a)
     {
         rustlex_ast_t *ret = makeast(a->type);
@@ -88,9 +109,12 @@
 %}
 
 %union { rustlex_ast_t *ast; char ch; }
-%token <ch> C
-%type <ast> OR_EXPR CAT_EXPR CLOS_EXPR CONST_EXPR REGEX
-%start REGEX
+%start       REGEX
+%token       TOK_OR TOK_CLOS TOK_OP TOK_CL TOK_PLUS TOK_ANY
+%token       TOK_LBR TOK_RBR TOK_HYP
+%token <ch>  C
+%type  <ast> OR_EXPR CAT_EXPR CLOS_EXPR CONST_EXPR REGEX CLASS_EXPR SEQ CLASS
+%type  <ast> ANY_EXPR
 
 %%
 
@@ -99,8 +123,8 @@ REGEX
     ;
 
 OR_EXPR 
-    : OR_EXPR '|' CAT_EXPR { $$ = makeor($1, $3); }
-    | CAT_EXPR             { $$ = $1; }
+    : OR_EXPR TOK_OR CAT_EXPR { $$ = makeor($1, $3); }
+    | CAT_EXPR                { $$ = $1; }
     ;
 
 CAT_EXPR
@@ -109,14 +133,35 @@ CAT_EXPR
     ;
 
 CLOS_EXPR
-    : CONST_EXPR '*' { $$ = makeclos($1); }
-    | CONST_EXPR '+' { $$ = makecat(copyast($1), makeclos($1)); }
-    | CONST_EXPR     { $$ = $1; }
+    : ANY_EXPR TOK_CLOS { $$ = makeclos($1); }
+    | ANY_EXPR TOK_PLUS { $$ = makecat(copyast($1), makeclos($1)); }
+    | ANY_EXPR          { $$ = $1; }
+    ;
+
+ANY_EXPR
+    : TOK_ANY           { $$ = makeseq(0, 255); }
+    | CLASS_EXPR        { $$ = $1; }
+    ;
+
+CLASS_EXPR
+    : TOK_LBR CLASS TOK_RBR { $$ = $2; }
+    | CONST_EXPR            { $$ = $1; }
+    ;
+
+CLASS
+    : SEQ CLASS     { $$ = makeor($1, $2); }
+    | C CLASS       { $$ = makeor(makeconst($1), $2); }
+    | SEQ           { $$ = $1; }
+    | C             { $$ = makeconst($1); }
+    ;
+
+SEQ
+    : C TOK_HYP C   { $$ = makeseq($1, $3); }
     ;
 
 CONST_EXPR
-    : '(' OR_EXPR ')' { $$ = $2; }
-    | C               { $$ = makeconst(yytext[0]); }
+    : TOK_OP OR_EXPR TOK_CL { $$ = $2; }
+    | C                     { $$ = makeconst($1); }
     ;
 
 %% 
@@ -143,15 +188,41 @@ int yylex()
     switch(tok)
     {
         case '|':
+            return TOK_OR;
+
         case '*':
+            return TOK_CLOS;
+
         case '(':
+            return TOK_OP;
+
         case ')':
-            return tok;
+            return TOK_CL;
+
+        case '[':
+            return TOK_LBR;
+
+        case ']':
+            return TOK_RBR;
+
+        case '.':
+            return TOK_ANY;
+
+        case '+':
+            return TOK_PLUS;
+
+        case '-':
+            return TOK_HYP;
+
+        case '\\':
+            yytext = input;
+            input ++;
 
         default:
             break;
     }
 
+    yylval.ch = yytext[0];
     return C;
 }
 
