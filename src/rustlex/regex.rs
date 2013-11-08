@@ -54,7 +54,7 @@ struct RustlexCAST {
     const_pos: libc::c_uint
 }
 
-#[link_args = "lib/regex_parser.dylib"]
+#[link_args = "lib/regex_parser.o"]
 extern {
     fn rustlex_parse_regex(input: *libc::c_char) -> *RustlexCAST;
 }

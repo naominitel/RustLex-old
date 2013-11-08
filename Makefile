@@ -1,4 +1,4 @@
-PARSER_LIB = lib/regex_parser.dylib
+PARSER_LIB = lib/regex_parser.o
 PARSER_C = src/rustlex/regex_parser.c
 PARSER_SRC = $(PARSER_C:.c=.y)
 
@@ -19,7 +19,7 @@ rustlex_tst: rustlex_lib
 
 $(PARSER_LIB): $(PARSER_C)
 	mkdir -p lib/
-	$(CC) -shared -o $@ $^
+	$(CC) -fPIC -c -o $@ $^
 
 $(PARSER_C): $(PARSER_SRC)
 	yacc -o $@ $^ 
