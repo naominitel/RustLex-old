@@ -12,6 +12,7 @@ mod dfa;
 pub mod lexer;
 mod nfa;
 mod regex;
+mod trans_table;
 
 fn print_ast(a: &regex::AST, prefix: &str) {
     match *a {

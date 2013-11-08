@@ -1,6 +1,5 @@
 #RUSTLEX_TRANSITION_TABLE
 #RUSTLEX_ACCEPTING_TABLE
-#RUSTLEX_INIT_STATE
 #RUSTLEX_CONDITIONS
 
 static INPUT_BUFSIZE: uint = 256;
@@ -13,7 +12,7 @@ struct InputBuffer {
 struct Lexer {
     stream: ~::std::rt::io::Reader,
     inp: ~InputBuffer,
-    condition: RustlexCondition
+    condition: uint
 }
 
 impl Lexer {
@@ -48,7 +47,7 @@ impl Lexer {
         let oldpos = self.inp.current_pos;
         let mut advance = self.inp.current_pos;
         let mut last_matching_action = 0;
-        let mut current_st = INIT_STATE;
+        let mut current_st = self.condition;
 
         while current_st != 0 {
             let i = match self.next_input() {
@@ -95,7 +94,7 @@ impl Lexer {
 
 fn main() {
     let pth = Path::new("input");
-    let inp = ~::std::rt::io::file::open(&pth, ::std::rt::io::Open, ::std::rt::io::Read).unwrap() as ~::std::rt::io::Reader;
+    let inp = ~::std::rt::io::File::open(&pth).unwrap() as ~::std::rt::io::Reader;
     let mut lexer = Lexer::new(inp);
 
     for (_, s) in lexer {

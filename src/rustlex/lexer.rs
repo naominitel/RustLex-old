@@ -1,12 +1,13 @@
 use action::Action;
+use automata::Automata;
 use std::hashmap::HashMap;
-use std::hashmap::HashSet;
 use std::rt::io::Writer;
+use trans_table::transition_table;
 
 struct Lexer {
-    priv auto: ~::dfa::DFA,
+    priv auto: ~[~::dfa::DFA],
     priv actions: ~HashMap<uint, ~Action>,
-    priv conditions: ~HashSet<~str>
+    priv conditions: ~HashMap<~str, uint>
 }
 
 impl Lexer {
@@ -22,7 +23,7 @@ impl Lexer {
             }
 
             writeln!(out, "/* State {:u} */", st);
-            print("[ ");
+            write!(out, "[ ");
 
             let mut it = tb.iter();
             match it.next() {
@@ -56,9 +57,8 @@ impl Lexer {
 
     pub fn new(regex: ~[(~str, ~str, Option<~str>)]) -> Lexer {
         let id = &mut 0u;
-        let mut asts = ~[];
+        let mut asts: ~HashMap<~str, ~[(~::regex::AST, uint)]> = ~HashMap::new();
         let mut acts = ~HashMap::new();
-        let mut conds = ~HashSet::new();
 
         // parse regexs and actions 
         for (reg, act, cond) in regex.move_iter() {
@@ -69,22 +69,36 @@ impl Lexer {
             };
 
             *id += 1;
-            let action = Action::new(reg, act, cond.clone(), *id);
+            let action = Action::new(reg, act);
             acts.insert(*id, action);
-            asts.push((ast, *id));
-            conds.insert(cond);
+
+            match asts.find_mut(&cond) {
+                Some(arr) => { arr.push((ast, *id)); continue }
+                None => ()
+            }
+
+            asts.insert(cond, ~[(ast, *id)]);
         }
 
-        let nfa = ::nfa::NFA::build_nfa(asts);
-        let mut dfa = ::dfa::DFA::new_from_nfa(nfa, acts);
-        let dfa = dfa.minimize();
+        let mut dfas = ~[];
+        let mut id = 0;
+        let mut conds = ~HashMap::new();
 
-        Lexer { auto: dfa, actions: acts, conditions: conds }
+        for (cond, asts) in asts.move_iter() {
+            let nfa = ::nfa::NFA::build_nfa(asts);
+            let mut dfa = ::dfa::DFA::new_from_nfa(nfa, &mut id);
+            let dfa = dfa.minimize();
+
+            println!("Initial ID of automata {:s} is {:u} ({:u})", cond, dfa.initial(), id);
+            conds.insert(cond, dfa.initial());
+            dfas.push(dfa);
+        }
+
+        Lexer { auto: dfas, actions: acts, conditions: conds }
     }
 
     pub fn write(&self, templ: Option<~str>, out: &mut Writer) {
-        use automata::AutomataState;
-        use std::rt::io::file;
+        use std::rt::io::File;
         use std::rt::io::Reader;
         use std::rt::io::Seek;
         use std::rt::io;
@@ -95,7 +109,7 @@ impl Lexer {
         };
 
         let pth = Path::new(templ_fname);
-        let mut inp = match file::open(&pth, io::Open, io::Read) {
+        let mut inp = match File::open(&pth) {
             Some(s) => s,
             None => fail!("Unable to open template file")
         };
@@ -109,7 +123,7 @@ impl Lexer {
         inp.read(buf);
 
         let contents = ::std::str::from_utf8(buf);
-        let (trans_tb, finals_tb, init_st) = self.auto.transition_table();
+        let (trans_tb, finals_tb, new_ids) = transition_table(self.auto);
 
         for line in contents.line_iter() {
             if line == "#RUSTLEX_TRANSITION_TABLE" {
@@ -151,18 +165,11 @@ impl Lexer {
                 }
             }
 
-            else if line == "#RUSTLEX_INIT_STATE" {
-                writeln!(out, "static INIT_STATE: uint = {:u};", init_st);
-            }
-
             else if line == "#RUSTLEX_CONDITIONS" {
-                writeln!(out, "enum RustlexCondition \\{");
-
-                for s in self.conditions.iter() {
-                    writeln!(out, "    {:s},", *s);
+                for (cond, init_s) in self.conditions.iter() {
+                    writeln!(out, "static {:s}: uint = {:u};",
+                        *cond, *new_ids.find(init_s).unwrap());
                 }
-
-                writeln!(out, "\\}");
             }
 
             else {

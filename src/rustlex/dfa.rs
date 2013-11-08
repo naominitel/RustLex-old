@@ -1,4 +1,3 @@
-use action::Action;
 use automata::Automata;
 use automata::AutomataState;
 use std::hashmap::HashMap;
@@ -30,6 +29,12 @@ struct State {
     // state. Also tells if this state is 
     // final. If this is None, it's not final
     priv action: Option<uint>
+}
+
+impl State {
+    pub fn trans_iter<'a>(&'a self) -> HashMapIterator<'a, u8, uint> {
+        self.trans.iter()
+    }
 }
 
 impl AutomataState for State {
@@ -83,9 +88,7 @@ impl Automata<State> for DFA {
 
 impl DFA {
     // "determinization" of a NFA
-    pub fn new_from_nfa(nfa: &::nfa::NFA, atb: &mut HashMap<uint, ~Action>) -> ~DFA {
-        let current_id = &mut 0;
-
+    pub fn new_from_nfa(nfa: &::nfa::NFA, current_id: &mut uint) -> ~DFA {
         // we associate a unique number to each state we create to index them
         // this utility function returns the next number
         fn gen_state_num(current_id: &mut uint) -> uint {
@@ -121,6 +124,7 @@ impl DFA {
         // create the entry state of the DFA
         let (f_id, fstate) = new_state(nfa.eclosure(st), current_id);
         ret.states.insert(f_id, fstate);
+        ret.initial = f_id;
 
         // stack of untreated states
         let mut unmarked = ~[];
@@ -168,12 +172,10 @@ impl DFA {
 
                                         match (st.action(), action) {
                                             (Some(act), None) => action = Some(act),
-                                            (Some(act), Some(ref a)) => {
-                                                let act = {
-                                                    let r = atb.get(&act);
-                                                    r.clone()
-                                                };
-                                                atb.find_mut(a).unwrap().merge(&*act);
+                                            (Some(act), Some(a)) => {
+                                                if act < a {
+                                                    action = Some(act);
+                                                }
                                             }
 
                                             // non final state
@@ -466,48 +468,5 @@ impl DFA {
 
         ret
     } 
-
-    pub fn transition_table(&self) -> (~[~[uint]], ~[uint], uint) {
-        let mut new_indexes = ~HashMap::new();
-        let mut old_indexes = ~HashMap::new();
-        let mut current_index = 1u;
-
-        for (i, _) in self.states.iter() {
-            new_indexes.insert(*i, current_index); 
-            old_indexes.insert(current_index, *i);
-            current_index += 1;
-        }
-
-        let trans_tb = ::std::vec::from_fn(current_index, |i: uint| {
-            let mut trans_table = ~[0, ..256];
-
-            if i != 0 {
-                let old_idx = old_indexes.find(&i).unwrap();
-                let st = self.states.find(old_idx).unwrap();
-
-                for (ch, dst) in st.trans.iter() {
-                    trans_table[*ch] = *new_indexes.find(dst).unwrap();
-                }
-            }
-
-            trans_table
-        });
-
-        let final_tb = ::std::vec::from_fn(current_index, |i: uint| {
-            if i == 0 { 0 }
-            else {
-                let old_idx = old_indexes.find(&i).unwrap();
-                let st = self.states.find(old_idx).unwrap();
-
-                match st.action() { 
-                    Some(a) => a,
-                    None => 0
-                }
-            }                
-        });
-
-        let init_st = *new_indexes.find(&self.initial).unwrap();
-        (trans_tb, final_tb, init_st)
-    }
 }
 
