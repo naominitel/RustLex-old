@@ -1,10 +1,10 @@
 use action::Action;
 use automata::Automata;
 use std::hashmap::HashMap;
-use std::rt::io::Writer;
+use std::io::Writer;
 use trans_table::transition_table;
 
-struct Lexer {
+pub struct Lexer {
     priv auto: ~[~::dfa::DFA],
     priv actions: ~HashMap<uint, ~Action>,
     priv conditions: ~HashMap<~str, uint>
@@ -98,10 +98,10 @@ impl Lexer {
     }
 
     pub fn write(&self, templ: Option<~str>, out: &mut Writer) {
-        use std::rt::io::File;
-        use std::rt::io::Reader;
-        use std::rt::io::Seek;
-        use std::rt::io;
+        use std::io::File;
+        use std::io::Reader;
+        use std::io::Seek;
+        use std::io;
 
         let templ_fname = match templ {
             Some(s) => s,
@@ -125,7 +125,7 @@ impl Lexer {
         let contents = ::std::str::from_utf8(buf);
         let (trans_tb, finals_tb, new_ids) = transition_table(self.auto);
 
-        for line in contents.line_iter() {
+        for line in contents.lines() {
             if line == "#RUSTLEX_TRANSITION_TABLE" {
                 Lexer::print_trans_table(trans_tb, out);
             }

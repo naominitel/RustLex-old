@@ -1,6 +1,6 @@
-use std::rt::io::Writer;
+use std::io::Writer;
 
-struct Action {
+pub struct Action {
     pattern: ~str,
     action: ~str
 }

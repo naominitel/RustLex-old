@@ -4,7 +4,7 @@ use rustlex::Lexer;
 
 #[test]
 fn main() {
-    use std::rt::io;
+    use std::io;
     let mut regexps = ~[];
 
     regexps.push((~"a", stringify!(println!("Saw an A")).into_owned(), None));

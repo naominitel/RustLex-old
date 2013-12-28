@@ -1,6 +1,6 @@
 use std::hashmap::HashMapIterator;
 use std::hashmap::HashSetIterator;
-use std::rt::io::Writer;
+use std::io::Writer;
 
 pub trait AutomataState {
     fn transitions(&self) -> ~[(u8, uint)];
@@ -19,6 +19,9 @@ pub trait Automata<State: AutomataState> {
 
 // generate a graphviz dot-representation of the automata
 // writes it to the `out` output stream
+// since this function is used only for debugging purposes, we allow it to be
+// unused:
+#[allow(dead_code)]
 pub fn to_dot<T: AutomataState, U: Automata<T>>(au: &U, out: &mut Writer) {
     writeln!(out, "digraph automata \\{");
     writeln!(out, "\trankdir = LR;");

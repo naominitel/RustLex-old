@@ -14,6 +14,10 @@ mod nfa;
 mod regex;
 mod trans_table;
 
+// allow this function to be unused since it's here for debugging purposes
+// only
+
+#[allow(dead_code)]
 fn print_ast(a: &regex::AST, prefix: &str) {
     match *a {
         regex::Or(ref opl, ref opr) => {

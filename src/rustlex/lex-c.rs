@@ -4,7 +4,7 @@ extern mod rustlex;
 //#[test]
 fn main() {
     use rustlex::Lexer;
-    use std::rt::io;
+    use std::io;
 
     let mut regexps = ~[];
 

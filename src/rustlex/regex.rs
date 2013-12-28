@@ -54,14 +54,13 @@ struct RustlexCAST {
     const_pos: libc::c_uint
 }
 
-#[link_args = "lib/regex_parser.o"]
+#[link(name = "lib/regex_parser.o")]
 extern {
     fn rustlex_parse_regex(input: *libc::c_char) -> *RustlexCAST;
 }
 
 /* wrappers for C function calls */
 
-#[fixed_stack_segment]
 pub unsafe fn parse(input: *libc::c_char) -> ~AST {
     let c_struct = rustlex_parse_regex(input);
     AST::new_from_c_ast(&*c_struct)

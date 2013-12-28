@@ -119,7 +119,7 @@
 %%
 
 REGEX 
-    : OR_EXPR { $$ = $1; yylval.ast = $$; return; }
+    : OR_EXPR { $$ = $1; yylval.ast = $$; return 0; }
     ;
 
 OR_EXPR 

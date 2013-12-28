@@ -7,7 +7,7 @@ use std::hashmap::HashSetIterator;
 use regex;
 
 // a non-deterministic finite automata
-struct NFA {
+pub struct NFA {
     priv states: ~HashMap<uint, ~State>,
     priv finals: ~HashSet<uint>,
     priv initial: uint
@@ -47,7 +47,7 @@ impl AutomataState for State {
 
 impl State {
     pub fn trans<'a>(&'a self, c: u8) -> Option<HashSetIterator<'a, uint>> {
-        do self.trans.find(&c).map |s| { s.iter() }
+        self.trans.find(&c).map(|s| { s.iter() })
     }
 }
 
@@ -309,34 +309,6 @@ impl NFA {
         ret
     }
 
-    pub fn to_dot(&self) {
-        println("digraph automata {");
-        println!("\trankdir = LR;");
-        println!("\tsize = \"4,4\";");
-        println!("\tnode [shape = box]; {:u};", self.initial);
-        print!("\tnode [shape = doublecircle];");
-
-        for i in self.finals.iter() {
-            print!(" {:u}", *i);
-        }
-
-        println!(";\n\tnode [shape = circle]");
-
-        for (i, st) in self.states.iter() {
-            for (c, dst) in st.trans.iter() {
-                for d in dst.iter() {
-                    println!("\t{:u} -> {:u} [label=\"{:c}\"];", 
-                        *i, *d, *c as char);
-                }
-            }
-
-            for dst in st.etrans.iter() {
-                println!("\t{:u} -> {:u} [label=\"e\"];", *i, *dst);
-            }
-        }
-        println("}");
-    }
-    
     pub fn eclosure(&self, st: &HashSet<uint>) -> ~HashSet<uint> {
         let mut ret = ~st.clone();
         let mut stack = ~[];

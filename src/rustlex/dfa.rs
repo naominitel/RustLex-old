@@ -6,7 +6,7 @@ use std::hashmap::HashSet;
 use std::hashmap::HashSetIterator;
 
 // a deterministic finite automata
-struct DFA {
+pub struct DFA {
     priv states: ~HashMap<uint, ~State>,
     priv finals: ~HashSet<uint>,
     priv initial: uint
@@ -386,26 +386,6 @@ impl DFA {
 
             ret
         };
-
-        fn print_group(group: &HashSet<uint>) {
-            print("group: { ");
-
-            for i in group.iter() {
-                print!("{:u}, ", *i);
-            }
-
-            println("}");
-        }
-
-        fn print_parts(part: &[~HashSet<uint>]) {
-            println("[");
-
-            for set in part.iter() {
-                print_group(&**set);
-            }
-
-            println("]");
-        }
 
         let mut part = groups;
         
